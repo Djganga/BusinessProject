@@ -3,6 +3,8 @@ from django.shortcuts import render
 from api import serializers, models
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
+from django.http import Http404
 
 # Create your views here.
 
@@ -22,33 +24,45 @@ class ProductList(APIView):
         serializer = serializers.ProductSerializer(data = request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data,status = status.HTTP_201_CREATED)
 
 
 class ParticularProduct(APIView):
-    def get(self, request,pk, format=None):
-        try:
-            itemss = models.Product.objects.get(id=pk)
-            serializer = serializers.ProductSerializer(itemss)
-            return Response(serializer.data)
-        except:
-            return Response({"Error Msg":f"No such item found with id of {pk}"})
-
-    def put(self,request,pk):
-        return Response({"msg":"Yet to develop this."})
-
-    def delete(self, request,pk, format=None):
+    def get_object(self,pk):
         try:
             itemm = models.Product.objects.get(id=pk)
-            itemm.delete()
-            return Response({"Msg":f"Item found with id of {pk} has been deleted."})
-        except:
-            return Response({"Error Msg":f"No such item found with id of {pk}"})
+            return itemm
+        except models.Product.DoesNotExist:
+            raise Http404
+            # return Response({"Error Msg":f"No such item found with id of {pk}"})
 
-def getprice(recordd):
-    if "discount" in recordd.keys():
-        recordd["final_price"] = float(recordd["mrp"]) - (float(recordd["discount"])*float(recordd["mrp"])/100)
-    else:
-        recordd["final_price"] = recordd["mrp"]
-        recordd["discount"] = string(float(0))
-    return recordd
+    def get(self, request,pk, format=None):
+        itemm = self.get_object(pk)
+        serializer = serializers.ProductSerializer(itemm)
+        return Response(serializer.data)
+
+    def put(self,request,pk):
+        itemm = self.get_object(pk)
+        dataa = request.data
+        dataa = self.getprice(dataa)
+        serializer = serializers.ProductSerializer(itemm,data = dataa)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            return Response({"Error Msg":f"Update failed for this item : {pk}"})
+
+    def delete(self, request,pk, format=None):
+        itemm = self.get_object(pk)
+        itemm.delete()
+        return Response({"Msg":f"Item found with id of {pk} has been deleted."})
+
+    ########## custoom methods ##########
+
+    def getprice(self, recordd):
+        if "discount" in recordd.keys():
+            recordd["final_price"] = float(recordd["mrp"]) - (float(recordd["discount"])*float(recordd["mrp"])/100)
+        else:
+            recordd["final_price"] = recordd["mrp"]
+            recordd["discount"] = string(float(0))
+        return recordd
