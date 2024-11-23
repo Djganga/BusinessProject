@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from calci import models, serializers
-from datetime import datetime
+from datetime import datetime, date, timedelta
 # Create your views here.
 
 # def get_balance(dictt):
@@ -50,3 +50,24 @@ def particular_bill_info(request,pk):
     if request.method == "DELETE":
         itemm.delete()
         return Response({"message":"Record deleted successfully."})
+
+@api_view(['GET'])
+def particular_day_transactions(request,pk):
+    datee = str(date.today() + timedelta(days=int(pk)))
+    # print("select * from calci_Ledger where created_date_time like '{}%'".format(datee))
+    recordss = models.Ledger.objects.raw("select * from calci_Ledger where created_date_time like '{}%'".format(datee))
+    serializer = serializers.LedgerSerializer(recordss,many = True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+def particular_day_collections(request,pk):
+    datee = str(date.today() + timedelta(days=int(pk)))
+    # print("select * from calci_Ledger where created_date_time like '{}%'".format(datee))
+    recordss = models.Ledger.objects.raw("select * from calci_Ledger where created_date_time like '{}%'".format(datee))
+    serializer = serializers.LedgerSerializer(recordss,many = True)
+    dictt = {"date":datee,"total_bill_amount":0,"total_received_amount":0,"total_balance_amount":0}
+    for record in serializer.data:
+        dictt["total_bill_amount"] = dictt["total_bill_amount"] + float(record['bill_amount'])
+        dictt["total_received_amount"] = dictt["total_received_amount"] + float(record['received_amount'])
+        dictt["total_balance_amount"] = dictt["total_balance_amount"] + float(record['balance_amount'])
+    return Response({'collections':dictt})
